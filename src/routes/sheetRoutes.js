@@ -1,15 +1,24 @@
 const express = require("express");
 const router = express.Router();
 const { useDb } = require("../db/couch");
+const authMiddleware = require("../middleware/authMiddleware");
 
 // CREATE
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware,async (req, res) => {
   try {
     const db = await useDb("sheets");
 	if (req.body._id === "") {
 		delete req.body._id;
 	}
-    const result = await db.insert(req.body);
+	const userId = req.user.id; // from decoded JWT
+
+    const entry = {
+      ...req.body,
+      userId,
+      createdAt: Date.now()
+    };
+
+    const result = await db.insert(entry);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });

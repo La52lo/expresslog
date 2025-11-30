@@ -84,6 +84,15 @@ async function checkUser() {
 	if (!token) window.location.href = '/login.html';
 }
 
+function isTokenExpired(token) {
+  if (!token) return true;
+
+  const payload = JSON.parse(atob(token.split(".")[1]));
+  const expiry = payload.exp * 1000; // convert seconds → ms
+
+  return Date.now() > expiry;
+}
+
 window.onload = checkUser;
 
 async function fetchLogsheets() {
@@ -160,17 +169,18 @@ function filterLogsheets() {
 }
 
 async function fetchLogsheet(title) {
+	const token = localStorage.getItem('token');
     try {
-		const response = await fetch(`/api/logsheet?title=${encodeURIComponent(title)}`, {
+		const response = await fetch(`/sheet?title=${encodeURIComponent(title)}`, {
             method: "GET",
             headers: {
                 "Accept": "application/json",
-				"Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+				"Authorization": 'Bearer ' + token
             }
         });
         const jsonData = await response.json();
-        if (jsonData.success) {
-            editLogsheet(jsonData.data);
+        if (jsonData.ok) {
+            renderLogsheet(jsonData.data);
         } else {
             console.error("Failed to load logsheet:", jsonData.error);
         }
@@ -192,10 +202,10 @@ function addProcedure() {
 			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
             
             <label>Title</label>
-            <input class="logsheet-step-title" type="text" placeholder="Enter step title" style="text-align:center;">
+            <input class="logsheet-step-title" type="text" placeholder="Enter procedure title" style="text-align:center;">
             
             <label>Description</label>
-            <textarea rows="2" placeholder="Enter detailed step description"></textarea>
+            <textarea rows="2" placeholder="Enter detailed procedure description"></textarea>
             
             <label>Procedures</label>
             <textarea rows="3" placeholder="Enter procedures" class="textbox-lines"></textarea>
@@ -435,10 +445,10 @@ async function saveLogsheet() {
 
             } else {
                 return {
-                    type: 'step',
-                    title: item.querySelector('input[placeholder="Enter step title"]').value,
-                    description: item.querySelector('textarea[placeholder="Enter detailed step description"]').value,
-                    procedures: item.querySelector('textarea[placeholder="Enter procedures"]').value,
+                    type: 'procedure',
+                    title: item.querySelector('input[placeholder="Enter procedure title"]').value,
+                    description: item.querySelector('textarea[placeholder="Enter detailed procedure description"]').value,
+                    content: item.querySelector('textarea[placeholder="Enter procedures"]').value,
                     //author: item.querySelector('input[placeholder="Enter author name"]').value,
                     timestamp: item.querySelector('input[placeholder="Timestamp"]').value
                 };
@@ -465,8 +475,8 @@ async function saveLogsheet() {
     body: JSON.stringify(logsheet)
   });
     const jsonData = await response.json();
-    if (jsonData.success) {
-        document.getElementById('logsheet-id').value = jsonData.objectId.toString();
+    if (jsonData.ok) {
+        document.getElementById('logsheet-id').value = jsonData.id.toString();
         alert("Saved!");
         document.getElementById("floating-save-button").style.display = "none";
     } else {
@@ -496,7 +506,7 @@ async function deleteLogsheet() {
     }
 }
 
-async function editLogsheet(logsheet) {
+async function renderLogsheet(logsheet) {
     try {
         //const response = await app.currentUser.functions.getLogsheet(logsheetId);
 
@@ -509,12 +519,12 @@ async function editLogsheet(logsheet) {
         document.getElementById('items-container').innerHTML = '';
         document.getElementById("floating-save-button").style.display = "none";
         logsheet.items.forEach(item => {
-            if (item.type === 'step') {
+            if (item.type === 'procedure') {
                 addProcedure();
                 const stepElement = document.getElementById('items-container').lastElementChild;
 
-                stepElement.querySelector('input[placeholder="Enter step title"]').value = item.title || '';
-                stepElement.querySelector('textarea[placeholder="Enter detailed step description"]').value = item.description || '';
+                stepElement.querySelector('input[placeholder="Enter procedure title"]').value = item.title || '';
+                stepElement.querySelector('textarea[placeholder="Enter detailed procedure description"]').value = item.description || '';
                 stepElement.querySelector('textarea[placeholder="Enter procedures"]').value = item.procedures || '';
                 //stepElement.querySelector('input[placeholder="Enter author name"]').value = item.author || '';
                 stepElement.querySelector('.step-timestamp').value = item.timestamp || '';
