@@ -1,3 +1,5 @@
+module.exports = attachUser;
+
 // src/middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
 const { useDb } = require("../db/couch");
@@ -15,6 +17,9 @@ async function attachUser(req, res, next) {
     const db = await useDb("users");
     const userDoc = await db.get(payload.sub).catch(() => null);
     if (!userDoc) return res.status(401).json({ error: "User not found" });
+
+    // Normalize id field for convenience: CouchDB stores the id in _id
+    userDoc.id = userDoc._id;
 
     // remove sensitive fields
     delete userDoc.passwordHash;
