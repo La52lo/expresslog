@@ -3,6 +3,8 @@ const router = express.Router();
 const { useDb } = require("../db/couch");
 const authMiddleware = require("../middleware/authMiddleware");
 const { buildDocId } = require("../utils");
+const dayjs = require('dayjs');
+
 
 const dbName = "sheets";
 
@@ -13,8 +15,9 @@ router.post("/", authMiddleware,async (req, res) => {
   try {
 	const { title, items } = req.body; 
     const db = await useDb(dbName);
-	const _id = buildDocId(userId, title);
 	const userId = req.user.id; // from decoded JWT
+	const _id = buildDocId(userId, title);
+	
 	delete req.body.user;
 	if (req.body._id === "") {
 		delete req.body._id;
@@ -28,11 +31,12 @@ router.post("/", authMiddleware,async (req, res) => {
     } catch (err) {
       if (err.statusCode !== 404) throw err;
     }
-	
+	const now = dayjs();
     const sheet = {
       _id,
+	  title,
 	  user: userId,
-	  createdAt: Date.now(),
+	  createdAt: now.format('YYYY/MM/DD HH:mm:ss'),
 	  items,
       
     };
@@ -46,9 +50,10 @@ router.post("/", authMiddleware,async (req, res) => {
 
 
 // --------------------
-// READ all entries for user
+// READ all sheets for user
 // --------------------
 router.get("/", authMiddleware, async (req, res) => {
+  console.log("allsheets");
   try {
     const db = await useDb(dbName);
     const userId = req.user.id;
@@ -72,15 +77,41 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // --------------------
+// READ all titles for user
+// --------------------
+router.get("/titles", authMiddleware, async (req, res) => {
+  try {
+    const db = await useDb(dbName);
+    const userId = req.user.id;
+    const result = await db.find({
+      selector: { user: userId },
+      fields: ["title"],
+      sort: [{ title: "asc" }]
+    });
+
+    // Extract just titles into an array
+    const titles = result.docs.map(doc => doc.title);
+
+    res.json(titles);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// --------------------
 // READ one entry by title
 // --------------------
 router.get("/:title", authMiddleware, async (req, res) => {
+	
   try {
     const db = await useDb(dbName);
     const userId = req.user.id;
     const title = req.params.title;
-
+	
     const _id = buildDocId(userId, title);
+	console.log("typeof _id:", typeof _id, "value:", _id);
     const doc = await db.get(_id);
 	delete doc.user;
     res.json(doc);
@@ -96,8 +127,9 @@ router.put("/", authMiddleware, async (req, res) => {
   try {
     const { title, rev, items } = req.body; // client must provide latest _rev
 	const db = await useDb(dbName);
-	const _id = buildDocId(userId, title);
 	const userId = req.user.id; // from decoded JWT
+	const _id = buildDocId(userId, title);
+	
 
     if (!title || !rev) {
       return res.status(400).json({ error: "Title and revision are required" });
@@ -120,7 +152,8 @@ router.put("/", authMiddleware, async (req, res) => {
     }
 	// Update document
     doc.items = items;
-	doc.lastModifiedAt = Date.now();
+	const now = dayjs();
+	doc.lastModifiedAt = now.format('YYYY/MM/DD HH:mm:ss');
     const response = await db.insert(doc); // CouchDB will increment _rev
 
     res.json({ ok: true, id: response.id, rev: response.rev });

@@ -123,19 +123,20 @@ function closeLoadModal() {
 
 async function fetchLogsheetTitles() {
     try {
+		const token = localStorage.getItem('token');
 		const logsheetList = document.getElementById('logsheet-list');
         logsheetList.innerHTML = '<H4>Fetching logsheets...</H4>';
-		const response = await fetch(`/api/fetchLogsheetTitles`, {
+		const response = await fetch(`/sheets/titles`, {
             method: "GET",
             headers: {
                 "Accept": "application/json",
-				"Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+				"Authorization": 'Bearer ' + token
             }
         });
         const jsonData = await response.json();
-        if (jsonData.success && jsonData.data.length > 0) {
+        if (response.ok && jsonData.length > 0) {
             logsheetList.innerHTML = '';
-			jsonData.data.forEach(title => {
+			jsonData.forEach(title => {
                 const li = document.createElement('li');
                 li.className = "clickable";
 				li.textContent = title;
@@ -172,7 +173,7 @@ function filterLogsheets() {
 async function fetchLogsheet(title) {
 	const token = localStorage.getItem('token');
     try {
-		const response = await fetch(`/sheet?title=${encodeURIComponent(title)}`, {
+		const response = await fetch(`/sheets/${encodeURIComponent(title)}`, {
             method: "GET",
             headers: {
                 "Accept": "application/json",
@@ -180,8 +181,8 @@ async function fetchLogsheet(title) {
             }
         });
         const jsonData = await response.json();
-        if (jsonData.ok) {
-            renderLogsheet(jsonData.data);
+        if (response.ok) {
+            renderLogsheet(jsonData);
         } else {
             console.error("Failed to load logsheet:", jsonData.error);
         }
@@ -460,7 +461,7 @@ async function saveLogsheet() {
 
     const logsheet = {
         _id: logsheetId,
-		_rev: logsheetRev,
+		rev: logsheetRev,
         title,
         author,
         created_at: createdAt,
@@ -470,7 +471,7 @@ async function saveLogsheet() {
 
 
 	const response = await fetch('/sheets', {
-    method: 'POST',
+    method: logsheetRev ? "PUT" : "POST",
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + token
