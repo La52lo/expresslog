@@ -96,17 +96,6 @@ function isTokenExpired(token) {
 
 window.onload = checkUser;
 
-async function fetchLogsheets() {
-    const response = await fetch("/api/getLogsheets", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("auth_token")}` }
-    });
-    const data = await response.json();
-    console.log("Logsheets:", data);
-}
-
-//document.getElementById("login-btn").addEventListener("click", login);
-//document.getElementById("logout-btn").addEventListener("click", logout);
-
 function autoResizeTextarea(element) {
     element.style.height = 'auto';
     element.style.height = element.scrollHeight + 'px';
@@ -171,8 +160,9 @@ function filterLogsheets() {
 }
 
 async function fetchLogsheet(title) {
-	const token = localStorage.getItem('token');
+	
     try {
+		const token = localStorage.getItem('token');
 		const response = await fetch(`/sheets/${encodeURIComponent(title)}`, {
             method: "GET",
             headers: {
@@ -469,46 +459,60 @@ async function saveLogsheet() {
         items
     };
 
-
-	const response = await fetch('/sheets', {
-    method: logsheetRev ? "PUT" : "POST",
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + token
-    },
-    body: JSON.stringify(logsheet)
-  });
-    const jsonData = await response.json();
-    if (jsonData.ok) {
-        document.getElementById('logsheet-id').value = jsonData.id.toString();
-		document.getElementById('logsheet-rev').value = jsonData.rev.toString();
-        alert("Saved!");
-        document.getElementById("floating-save-button").style.display = "none";
-    } else {
-        console.error("Saving logsheet failed:", jsonData.error);
-        alert("Saving failed: " + jsonData.error);
-    }
+	try {
+		const response = await fetch('/sheets', {
+		method: logsheetRev ? "PUT" : "POST",
+		headers: {
+		  'Content-Type': 'application/json',
+		  'Authorization': 'Bearer ' + token
+		},
+		body: JSON.stringify(logsheet)
+	  });
+		const jsonData = await response.json();
+		if (jsonData.ok) {
+			document.getElementById('logsheet-id').value = jsonData.id.toString();
+			document.getElementById('logsheet-rev').value = jsonData.rev.toString();
+			alert("Saved!");
+			document.getElementById("floating-save-button").style.display = "none";
+		} else {
+			console.error("Saving logsheet failed:", jsonData.error);
+			alert("Saving failed: " + jsonData.error);
+		}}
+	catch (err) {
+		// Catch ANY network error or thrown error above
+		console.error("Request failed:", err.message);
+		alert(`Failed to fetch sheet: ${err.message}`);
+  }
 }
 
 async function deleteLogsheet() {
     
-	const logsheetId = document.getElementById('logsheet-id').value;
 	const title = document.getElementById('logsheet-title').value;
 	if (!confirm(`Are you sure you want to delete Logsheet "${title}"?`))
         return;
-	const response = await fetch(`/api/logsheet?id=${encodeURIComponent(logsheetId)}`, {
+	
+	try {
+		const token = localStorage.getItem('token');
+		const response = await fetch(`/sheets/${encodeURIComponent(title)}`, {
             method: "DELETE",
             headers: {
                 "Accept": "application/json",
-				"Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+				"Authorization": 'Bearer ' + token
             }
         });
-    if (response) {
-        alert("Logsheet deleted!");
-		newLogsheet();
-    } else {
-        console.error("Deleting logsheet failed:", jsonData.error);
+        const jsonData = await response.json();
+        if (response.ok) {
+            alert("Logsheet deleted!");
+			newLogsheet();
+        } else {
+			alert("Delete failed!");
+            console.error("Failed to delete logsheet:", jsonData.error);
+        }
+    } catch (error) {
+		alert("Delete failed!");
+        console.error("Error selecting logsheet:", error.message);
     }
+	
 }
 
 async function renderLogsheet(logsheet) {
@@ -591,13 +595,12 @@ function closeTemplateModal() {
 
 async function fetchTemplateTitles() {
     try {
-        // Fetch the list of template titles from the backend
-        // DELETE const response = await app.currentUser.functions.getAllTemplateTitles();
-		const response = await fetch(`/api/fetchTemplateTitles`, {
+		const token = localStorage.getItem('token');
+		const response = await fetch(`/sheets/titles`, {
             method: "GET",
             headers: {
                 "Accept": "application/json",
-				"Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+				"Authorization": 'Bearer ' + token
             }
         });
         const templateList = document.getElementById('template-list');
@@ -636,12 +639,13 @@ function filterTemplates() {
 }
 
 async function fetchTemplate(title) {
-    try {
-		const response = await fetch(`/api/template?title=${encodeURIComponent(title)}`, {
+    const token = localStorage.getItem('token');
+	try {
+		const response = await fetch(`/templates/${encodeURIComponent(title)}`, {
             method: "GET",
             headers: {
                 "Accept": "application/json",
-				"Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+				"Authorization": 'Bearer ' + token
             }
         });
         const jsonData = await response.json();
@@ -671,19 +675,24 @@ async function deleteTemplate(title) {
         return;
 
     try {
-        // DELETE const response = await app.currentUser.functions.deleteTemplateByTitle(title); // Call backend function
-        const response = await fetch(`/api/deleteTemplateByTitle?title=${encodeURIComponent(title)}`, {
-            method: "DELETE"
+		const token = localStorage.getItem('token');
+		const response = await fetch(`/templates/${encodeURIComponent(title)}`, {
+            method: "DELETE",
+            headers: {
+                "Accept": "application/json",
+				"Authorization": 'Bearer ' + token
+            }
         });
         const jsonData = await response.json();
-        if (jsonData.success) {
-            alert("Template deleted successfully!");
-            fetchTemplateTitles(); // Refresh template list after deletion
+        if (response.ok) {
+            alert("Template deleted!");
+			newLogsheet();
         } else {
-            alert("Failed to delete template: " + jsonData.error);
+			alert("Delete failed!");
+            console.error("Failed to delete logsheet:", jsonData.error);
         }
     } catch (error) {
-        console.error("Error deleting template:", error);
-        alert("An error occurred while deleting the template.");
+		alert("Delete failed!");
+        console.error("Error selecting logsheet:", error.message);
     }
 }

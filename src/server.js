@@ -22,6 +22,7 @@ app.use("/auth", authRoutes);
 
 // protected API routes example
 app.use("/sheets", authMiddleware, sheetRoutes);
+app.use("/templates", authMiddleware, templateRoutes);
 
 // alternative: allow list for read-only endpoints, etc.
 // app.use("/api/items", itemRoutes); // if you want unauthenticated read
