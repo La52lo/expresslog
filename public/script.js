@@ -240,10 +240,10 @@ function addAttachment() {
     const itemsContainer = document.getElementById('items-container');
     const attachmentItem = document.createElement('div');
     attachmentItem.className = 'logsheet-step';
-    const fileObjectId = ""; // Initially, no file is uploaded
+    //const fileObjectId = ""; // Initially, no file is uploaded
     const timestamp = new Date().toLocaleString();
     attachmentItem.innerHTML = `
-            <div class="tag step-tag">Attachement</div>
+            <div class="tag step-tag">Attachment</div>
 			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
             
             <label>Attachment</label>
@@ -256,7 +256,7 @@ function addAttachment() {
             <button onclick="uploadAttachment(this)">Upload</button>
 			<label>Timestamp</label>
             <input type="text" class="step-timestamp" placeholder="Timestamp" value="${timestamp}" readonly>
-			<input type="hidden" name="file-id" value="${fileObjectId}"> <!-- Store ObjectId here -->
+			<input type="hidden" name="attachment-id" value=""> <!-- Store ObjectId here -->
 			<a class="download-link" style="display:none;">Download</a> <!-- Download link -->
         `;
     itemsContainer.appendChild(attachmentItem);
@@ -271,7 +271,7 @@ function updateFileName(input) {
 async function saveToTemplate(button) {
     // Find the parent element (the item where the button is located)
     const parentItem = button.parentElement;
-    const title = parentItem.querySelector('input[placeholder="Enter step title"]')?.value || '';
+    const title = parentItem.querySelector('input[placeholder="Enter procedure title"]')?.value || '';
     const description = parentItem.querySelector('textarea[placeholder="Enter detailed step description"]')?.value || '';
     const procedures = parentItem.querySelector('textarea[placeholder="Enter procedures"]')?.value || '';
 
@@ -285,16 +285,17 @@ async function saveToTemplate(button) {
 
     // Call the backend to save the template
     try {
-
-        const response = await fetch("/api/template", {
+		const token = localStorage.getItem('token');
+        const response = await fetch("/templates", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+				'Authorization': 'Bearer ' + token
             },
             body: JSON.stringify(template)
         });
         const jsonData = await response.json();
-        if (jsonData.success) {
+        if (jsonData.ok) {
             alert("Template saved successfully!");
         } else {
             console.error("Failed to save template:", jsonData.error);
@@ -328,33 +329,32 @@ async function uploadAttachment(button) {
     const attachmentItem = button.parentElement;
     const fileInput = attachmentItem.querySelector('input[type="file"]');
     const file = fileInput.files[0];
+	const formData = new FormData();
+	formData.append("file", file);
 
     if (!file) {
         alert("Please select a file before uploading.");
         return;
     }
-    const {
+   /*  const {
         base64Data,
         fileName
-    } = await readSmallFile(file, file.name);
+    } = await readSmallFile(file, file.name); */
     const fileNameIndicator = attachmentItem.querySelector('.file-name');
     try {
-
-        const response = await fetch("/api/upload", {
+		const token = localStorage.getItem('token');
+        const response = await fetch("/sheets/upload", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+				'Authorization': 'Bearer ' + token
             },
-            body: JSON.stringify({
-                fileName,
-                fileData: base64Data
-            })
+			body: formData,
 
         });
         const jsonData = await response.json();
         if (jsonData.success) {
             fileNameIndicator.textContent = `File: ${file.name} (Uploaded)`;
-            attachmentItem.querySelector('input[name=file-id]').value = jsonData.fileId;
+            attachmentItem.querySelector('input[name=attachment-id]').value = jsonData.attachmentId;
         } else {
             console.error("Uploading attachment failed:", jsonData.error);
             fileNameIndicator.textContent = "Upload failed";
@@ -424,15 +424,15 @@ async function saveLogsheet() {
                     timestamp: item.querySelector('input[placeholder="Timestamp"]').value
                 };
             } else if (item.querySelector('input[type="file"]')) {
-                const fileObjectId = item.querySelector('input[name="file-id"]').value; // Get the ObjectId from the hidden input field
-                const fileNameIndicator = item.querySelector('.file-name').textContent;
+                const attachmentId = item.querySelector('input[name="attachment-id"]').value; // Get the ObjectId from the hidden input field
+                const fileName = item.querySelector('input[type="file"]')?.files?.[0]?.name ?? item.querySelector('.file-name').textContent;
                 const description = item.querySelector('textarea[placeholder="Enter attachment description"]').value;
 
                 return {
                     type: 'attachment',
-                    attachment_name: fileNameIndicator.replace('File: ', '').replace(' (Uploaded)', ''),
+                    filename: fileName,
                     description: description,
-                    fileObjectId: fileObjectId, // Save the fileObjectId for this attachment
+                    attachmentId: attachmentId, 
                     timestamp: item.querySelector('input[placeholder="Timestamp"]').value
                 };
 
@@ -549,19 +549,19 @@ async function renderLogsheet(logsheet) {
             } else if (item.type === 'attachment') {
                 addAttachment();
                 const attachmentElement = document.getElementById('items-container').lastElementChild;
-                attachmentElement.querySelector('.file-name').textContent = item.attachment_name || 'No file selected';
+                attachmentElement.querySelector('.file-name').textContent = item.filename || 'No file selected';
                 attachmentElement.querySelector('textarea[placeholder="Enter attachment description"]').value = item.description || '';
                 attachmentElement.querySelector('.step-timestamp').value = item.timestamp || '';
                 // Set ObjectId in the hidden field
-                attachmentElement.querySelector('input[name="file-id"]').value = item.fileObjectId || '';
+                attachmentElement.querySelector('input[name="attachment-id"]').value = item.attachmentId || '';
 
                 // Show download link if there is an ObjectId
                 const downloadLink = attachmentElement.querySelector('.download-link');
-                if (item.fileObjectId) {
+                if (item.attachmentId) {
                     downloadLink.style.display = 'inline';
-                    downloadLink.href = '#'; // Assign a placeholder link, will be updated dynamically
+                    downloadLink.href = `/downloads/${item.attachmentId}/${item.filename}`; 
                     downloadLink.textContent = 'Download';
-                    downloadLink.onclick = () => downloadAttachment(item.fileObjectId);
+                    //downloadLink.onclick = () => downloadAttachment(item.fileObjectId);
                     attachmentElement.querySelector('input[type="file"]').style.display = 'none';
                     attachmentElement.querySelector('button[onclick="uploadAttachment(this)"]').style.display = 'none';
                 }
@@ -596,7 +596,7 @@ function closeTemplateModal() {
 async function fetchTemplateTitles() {
     try {
 		const token = localStorage.getItem('token');
-		const response = await fetch(`/sheets/titles`, {
+		const response = await fetch(`/templates/titles`, {
             method: "GET",
             headers: {
                 "Accept": "application/json",
@@ -606,9 +606,9 @@ async function fetchTemplateTitles() {
         const templateList = document.getElementById('template-list');
         templateList.innerHTML = ''; // Clear any existing templates
         const jsonData = await response.json();
-        if (jsonData.success && jsonData.data.length > 0) {
+        if (jsonData.length > 0) {
             // Populate the template list with the fetched titles
-            jsonData.data.forEach(title => {
+            jsonData.forEach(title => {
                 const li = document.createElement('li');
                 li.innerHTML = `
                 <span onclick="fetchTemplate('${title}')">${title}</span> 
@@ -648,21 +648,21 @@ async function fetchTemplate(title) {
 				"Authorization": 'Bearer ' + token
             }
         });
-        const jsonData = await response.json();
-        if (jsonData.success && jsonData.data) {
-            const template = jsonData.data;
+        
+        if (response.ok) {
+            const template = await response.json();
 
             // Populate the form fields in the target logsheet step
             const parentItem = window.templateTargetItem;
-            parentItem.querySelector('input[placeholder="Enter step title"]').value = template.title || '';
-            parentItem.querySelector('textarea[placeholder="Enter detailed step description"]').value = template.description || '';
+            parentItem.querySelector('input[placeholder="Enter procedure title"]').value = template.title || '';
+            parentItem.querySelector('textarea[placeholder="Enter detailed procedure description"]').value = template.description || '';
             parentItem.querySelector('textarea[placeholder="Enter procedures"]').value = template.procedures || '';
             autoResizeTextarea(parentItem.querySelector('textarea[placeholder="Enter procedures"]'));
 
             alert("Template loaded successfully!");
             closeTemplateModal();
         } else {
-            alert("Template not found or an error occurred: " + jsonData.error);
+            alert("Template not found or an error occurred: " + response.error);
         }
     } catch (error) {
         console.error("Error loading template:", error.message);

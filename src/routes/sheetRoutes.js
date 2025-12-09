@@ -5,6 +5,10 @@ const authMiddleware = require("../middleware/authMiddleware");
 const { buildDocId } = require("../utils");
 const dayjs = require('dayjs');
 
+const path = require("path");
+const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
+
 
 const dbName = "sheets";
 
@@ -53,7 +57,7 @@ router.post("/", authMiddleware,async (req, res) => {
 // READ all sheets for user
 // --------------------
 router.get("/", authMiddleware, async (req, res) => {
-  console.log("allsheets");
+ 
   try {
     const db = await useDb(dbName);
     const userId = req.user.id;
@@ -111,7 +115,6 @@ router.get("/:title", authMiddleware, async (req, res) => {
     const title = req.params.title;
 	
     const _id = buildDocId(userId, title);
-	console.log("typeof _id:", typeof _id, "value:", _id);
     const doc = await db.get(_id);
 	delete doc.user;
     res.json(doc);
@@ -184,4 +187,46 @@ router.delete("/:title", authMiddleware, async (req, res) => {
   }
 });
 
+
+// --------------------
+// Upload Attachment Route
+// --------------------
+router.post("/upload", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const file = req.files.file;
+    const attachmentId = uuidv4();
+
+    const uploadDir = path.join(
+      __dirname,
+      "..",
+      "uploads",
+      attachmentId
+    );
+
+    fs.mkdirSync(uploadDir, { recursive: true });
+
+    const filePath = path.join(uploadDir, file.name);
+    await file.mv(filePath);
+
+    const downloadUrl = `/uploads/${attachmentId}/${encodeURIComponent(file.name)}`;
+
+    res.json({
+      success: true,
+      attachmentId,
+      filename: file.name,
+      downloadUrl
+    });
+
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+
