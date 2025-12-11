@@ -15,7 +15,6 @@ router.post("/", authMiddleware,async (req, res) => {
   try {
 	const { title } = req.body;
 	const body = req.body;
-	console.log(body);
     const db = await useDb(dbName);
 	const userId = req.user.id; // from decoded JWT
 	const _id = buildDocId(userId, title);

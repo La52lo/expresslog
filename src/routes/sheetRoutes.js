@@ -203,7 +203,7 @@ router.post("/upload", authMiddleware, async (req, res) => {
 
     const uploadDir = path.join(
       __dirname,
-      "..",
+      "..","..",
       "uploads",
       attachmentId
     );

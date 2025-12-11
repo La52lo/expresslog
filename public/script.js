@@ -6,13 +6,46 @@ function showSaveButton(){
  }
  
 document.addEventListener("DOMContentLoaded", function () {
-    
+    checkUser();
     // Show button only when there's user interaction
     document.getElementById("logsheet-container").addEventListener("input", showSaveButton);
 	document.getElementById("addProc-btn").addEventListener("click", showSaveButton);
 	document.getElementById("addNote-btn").addEventListener("click", showSaveButton);
 	document.getElementById("addAttach-btn").addEventListener("click", showSaveButton);
+	document.addEventListener("change", event => {
+	  if (event.target.matches('input[data-field="file"]')) {
+		const file = event.target.files[0];
+		if (!file) return;
+
+		openFileModal(event.target, file);
+	  }
+	});
+	document.getElementById('modal-upload-save-btn').onclick = async () => {
+		if (!selectedFileInput || !selectedFile) return;
+
+		try {
+			await uploadAttachment(selectedFileInput); // You already implemented this
+			await saveLogsheet();                     // Your sheet save function
+		} catch (err) {
+			console.error("Error uploading or saving:", err);
+			alert("Upload or save failed. Check console.");
+		}
+
+		closeFileModal();
+	};
+
+	document.getElementById('modal-cancel-btn').onclick = () => {
+		if (selectedFileInput)
+			selectedFileInput.value = ""; // reset file input
+
+		closeFileModal();
+	};
+
+
 });
+
+
+
 
 function newLogsheet() {
     document.getElementById('logsheet-title').value = '';
@@ -25,25 +58,6 @@ function newLogsheet() {
 
 }
 
-let auth0Client;
-
-async function initAuth0() {
-    auth0Client = await auth0.createAuth0Client({
-        domain: "dev-16kzyoiz8sa3k8ht.us.auth0.com",
-        clientId: "qd9Sjyu0GDTqs3Kj9oLqxUP5zLdz2096",
-        authorizationParams: {
-            redirect_uri: window.location.origin
-        }
-    });
-
-    // Check if redirected from login and handle the token
-    if (window.location.search.includes("code=") && window.location.search.includes("state=")) {
-        await auth0Client.handleRedirectCallback();
-        window.history.replaceState({}, document.title, "/"); // Remove Auth0 params from URL
-    }
-
-    checkUser();
-}
 
 /*
 // Login function (Redirect to Auth0 login page)
@@ -65,24 +79,18 @@ function goToLogin() {
   window.location.href = '/login.html';
 }
 
-
-async function logout() {
-   
-    // ✅ Remove token from storage (prevents further API access)
-    localStorage.removeItem("auth_token");
-
-    // ✅ Redirect user to Auth0 logout (clears Auth0 session)
-    await auth0Client.logout({ returnTo: window.location.origin });
-
-    // ✅ Optional: Force token invalidation by calling Auth0's `/v2/logout`
-    await fetch(`https://${auth0Client.domain}/v2/logout?client_id=${auth0Client.clientId}`, { mode: "no-cors" });
+function logout() {
+  localStorage.removeItem("token");
+  document.getElementById("user-info").innerHTML = "";
+  window.location.href = "/login.html";
+  
 }
-
 
 // Check if user is authenticated
 async function checkUser() {
     const token = localStorage.getItem('token');
-	if (!token) window.location.href = '/login.html';
+	if ((!token) || isTokenExpired(token)) logout() 
+		else document.getElementById("user-info").innerHTML = `User: ${localStorage.getItem('userName')}`;
 }
 
 function isTokenExpired(token) {
@@ -94,7 +102,7 @@ function isTokenExpired(token) {
   return Date.now() > expiry;
 }
 
-window.onload = checkUser;
+//window.onload = checkUser;
 
 function autoResizeTextarea(element) {
     element.style.height = 'auto';
@@ -109,6 +117,26 @@ function openLoadModal() {
 function closeLoadModal() {
     document.getElementById('loadModal').style.display = 'none';
 }
+
+let selectedFileInput = null;
+let selectedFile = null;
+
+function openFileModal(inputElement, file) {
+    selectedFileInput = inputElement;
+    selectedFile = file;
+
+    document.getElementById('modal-file-name').textContent =
+        "Selected file: " + file.name;
+
+    document.getElementById('file-upload-modal').style.display = "flex";
+}
+
+function closeFileModal() {
+    document.getElementById('file-upload-modal').style.display = "none";
+    selectedFileInput = null;
+    selectedFile = null;
+}
+
 
 async function fetchLogsheetTitles() {
     try {
@@ -194,22 +222,22 @@ function addProcedure() {
 			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
             
             <label>Title</label>
-            <input class="logsheet-step-title" type="text" placeholder="Enter procedure title" style="text-align:center;">
+            <input class="logsheet-step-title" type="text" placeholder="Enter procedure title" style="text-align:center;" data-field="title" >
             
             <label>Description</label>
-            <textarea rows="2" placeholder="Enter detailed procedure description"></textarea>
+            <textarea rows="2" placeholder="Enter detailed procedure description" data-field="description"></textarea>
             
             <label>Procedures</label>
-            <textarea rows="3" placeholder="Enter procedures" class="textbox-lines"></textarea>
+            <textarea rows="3" placeholder="Enter procedures" class="textbox-lines" data-field="procedures" ></textarea>
 
             <label>Author</label>
-            <input type="text" placeholder="Enter author name">
+            <input type="text" placeholder="Enter author name" data-field="author">
 
             <label>Timestamp</label>
-            <input type="text" class="step-timestamp" placeholder="Timestamp" value="${timestamp}" readonly>
-
-            <button onclick="saveToTemplate(this)">Save to Template</button>
-            <button onclick="loadFromTemplate(this)">Load from Template</button>
+            <input type="text" data-field="timestamp" class="step-timestamp" placeholder="Timestamp" value="${timestamp}" readonly>
+			<button onclick="loadFromTemplate(this)">Load from Template</button>
+            <button class="save-template-btn" onclick="saveToTemplate(this)"><i class="fas fa-save"></i></button>
+            
         `;
     itemsContainer.appendChild(logsheetStep);
     document.querySelectorAll('textarea').forEach(textarea => {
@@ -229,9 +257,9 @@ function addNote() {
 			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
             
             <label>Note Content</label>
-            <textarea rows="3" placeholder="Enter note content"></textarea>
+            <textarea rows="3" placeholder="Enter note content" data-field="content"></textarea>
 			<label>Timestamp</label>
-            <input type="text" class="step-timestamp" placeholder="Timestamp" value="${timestamp}" readonly>
+            <input type="text" class="step-timestamp" data-field="timestamp"  placeholder="Timestamp" value="${timestamp}" readonly>
         `;
     itemsContainer.appendChild(noteItem);
 }
@@ -247,17 +275,17 @@ function addAttachment() {
 			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
             
             <label>Attachment</label>
-            <input type="file" onchange="updateFileName(this)">
+            <input type="file" onchange="updateFileName(this)" data-field="file">
             <span class="file-name">No file selected</span>
 
             <label>Description</label>
-            <textarea rows="2" placeholder="Enter attachment description"></textarea>
+            <textarea rows="2" placeholder="Enter attachment description" data-field="description"></textarea>
 
-            <button onclick="uploadAttachment(this)">Upload</button>
+            <!--button onclick="uploadAttachment(this)">Upload</button--!>
 			<label>Timestamp</label>
-            <input type="text" class="step-timestamp" placeholder="Timestamp" value="${timestamp}" readonly>
-			<input type="hidden" name="attachment-id" value=""> <!-- Store ObjectId here -->
-			<a class="download-link" style="display:none;">Download</a> <!-- Download link -->
+            <input type="text" class="step-timestamp" data-field="timestamp"  placeholder="Timestamp" value="${timestamp}" readonly>
+			<input type="hidden" name="attachment-id"  data-field="attachment-id" value=""> 
+			<a class="download-link" style="display:none;">Download</a>
         `;
     itemsContainer.appendChild(attachmentItem);
 }
@@ -271,9 +299,9 @@ function updateFileName(input) {
 async function saveToTemplate(button) {
     // Find the parent element (the item where the button is located)
     const parentItem = button.parentElement;
-    const title = parentItem.querySelector('input[placeholder="Enter procedure title"]')?.value || '';
-    const description = parentItem.querySelector('textarea[placeholder="Enter detailed step description"]')?.value || '';
-    const procedures = parentItem.querySelector('textarea[placeholder="Enter procedures"]')?.value || '';
+    const title = parentItem.querySelector('[data-field="title"]')?.value || '';
+    const description = parentItem.querySelector('[data-field="description"]')?.value || '';
+    const procedures = parentItem.querySelector('[data-field="procedures"]')?.value || '';
 
     // Create the template object
     const template = {
@@ -325,10 +353,10 @@ async function readSmallFile(file, fileName) {
     });
 }
 
-async function uploadAttachment(button) {
-    const attachmentItem = button.parentElement;
-    const fileInput = attachmentItem.querySelector('input[type="file"]');
-    const file = fileInput.files[0];
+async function uploadAttachment(inputEl) {
+    const attachmentItem = inputEl.parentElement;
+    //const fileInput = attachmentItem.querySelector('input[type="file"]');
+    const file = inputEl.files[0];
 	const formData = new FormData();
 	formData.append("file", file);
 
@@ -365,7 +393,9 @@ async function uploadAttachment(button) {
     }
 
 }
-
+///////////////////////////////////
+/// NOT USED
+///////////////////////////////////
 async function downloadAttachment(fileId) {
     try {
         // Call the MongoDB App Services function to get the file data
@@ -402,66 +432,55 @@ async function downloadAttachment(fileId) {
 }
 
 async function saveLogsheet() {
-    const title = document.getElementById('logsheet-title').value;
-    const author = document.getElementById('logsheet-author').value;
-    const logsheetId = document.getElementById('logsheet-id').value;
-	const logsheetRev = document.getElementById('logsheet-rev').value;
-	const token = localStorage.getItem('token');
-    let createdAt = document.getElementById('created-at').value;
-    const modifiedAt = new Date().toLocaleString();
+    
+    const logsheet = {
+        _id: document.getElementById('logsheet-id').value,
+        rev: document.getElementById('logsheet-rev').value,
+        title: document.getElementById('logsheet-title').value,
+        author: document.getElementById('logsheet-author').value,
+        created_at: document.getElementById('created-at').value || new Date().toLocaleString(),
+        last_modified_at: new Date().toLocaleString(),
+        items: []
+    };
 
-    if (!createdAt) {
-        createdAt = modifiedAt;
-    }
 
-    const items = Array.from(document.querySelectorAll('.logsheet-step')).map(item => {
+    document.querySelectorAll('.logsheet-step').forEach(step => {
+        const type = step.querySelector('.tag').textContent.toLowerCase();
 
-        if (item.querySelector('textarea')) {
-            if (item.querySelector('textarea[placeholder="Enter note content"]')) {
-                return {
-                    type: 'note',
-                    content: item.querySelector('textarea').value,
-                    timestamp: item.querySelector('input[placeholder="Timestamp"]').value
-                };
-            } else if (item.querySelector('input[type="file"]')) {
-                const attachmentId = item.querySelector('input[name="attachment-id"]').value; // Get the ObjectId from the hidden input field
-                const fileName = item.querySelector('input[type="file"]')?.files?.[0]?.name ?? item.querySelector('.file-name').textContent;
-                const description = item.querySelector('textarea[placeholder="Enter attachment description"]').value;
+        if (type === 'procedure') {
+            logsheet.items.push({
+                type,
+                title: step.querySelector('[data-field="title"]').value,
+                description: step.querySelector('[data-field="description"]').value,
+                procedures: step.querySelector('[data-field="procedures"]').value,
+				author: step.querySelector('[data-field="author"]').value,
+                timestamp: step.querySelector('[data-field="timestamp"]').value
+            });
+        }
 
-                return {
-                    type: 'attachment',
-                    filename: fileName,
-                    description: description,
-                    attachmentId: attachmentId, 
-                    timestamp: item.querySelector('input[placeholder="Timestamp"]').value
-                };
+        else if (type === 'note') {
+            logsheet.items.push({
+                type,
+                content: step.querySelector('[data-field="content"]').value,
+                timestamp: step.querySelector('[data-field="timestamp"]').value
+            });
+        }
 
-            } else {
-                return {
-                    type: 'procedure',
-                    title: item.querySelector('input[placeholder="Enter procedure title"]').value,
-                    description: item.querySelector('textarea[placeholder="Enter detailed procedure description"]').value,
-                    content: item.querySelector('textarea[placeholder="Enter procedures"]').value,
-                    //author: item.querySelector('input[placeholder="Enter author name"]').value,
-                    timestamp: item.querySelector('input[placeholder="Timestamp"]').value
-                };
-            }
+        else if (type === 'attachment') {
+            logsheet.items.push({
+                type,
+                filename: step.querySelector('[data-field="file"]').files[0]?.name ?? step.querySelector('.file-name').textContent,
+                description: step.querySelector('[data-field="description"]').value,
+                attachmentId: step.querySelector('[data-field="attachment-id"]').value,
+                timestamp: step.querySelector('[data-field="timestamp"]').value
+            });
         }
     });
 
-    const logsheet = {
-        _id: logsheetId,
-		rev: logsheetRev,
-        title,
-        author,
-        created_at: createdAt,
-        last_modified_at: modifiedAt,
-        items
-    };
-
 	try {
+		const token = localStorage.getItem('token');
 		const response = await fetch('/sheets', {
-		method: logsheetRev ? "PUT" : "POST",
+		method: document.getElementById('logsheet-rev').value ? "PUT" : "POST",
 		headers: {
 		  'Content-Type': 'application/json',
 		  'Authorization': 'Bearer ' + token
@@ -472,7 +491,7 @@ async function saveLogsheet() {
 		if (jsonData.ok) {
 			document.getElementById('logsheet-id').value = jsonData.id.toString();
 			document.getElementById('logsheet-rev').value = jsonData.rev.toString();
-			alert("Saved!");
+			alert("Logsheet saved!");
 			document.getElementById("floating-save-button").style.display = "none";
 		} else {
 			console.error("Saving logsheet failed:", jsonData.error);
@@ -481,7 +500,7 @@ async function saveLogsheet() {
 	catch (err) {
 		// Catch ANY network error or thrown error above
 		console.error("Request failed:", err.message);
-		alert(`Failed to fetch sheet: ${err.message}`);
+		alert(`Failed to save sheet: ${err.message}`);
   }
 }
 
@@ -517,7 +536,6 @@ async function deleteLogsheet() {
 
 async function renderLogsheet(logsheet) {
     try {
-        //const response = await app.currentUser.functions.getLogsheet(logsheetId);
 
         document.getElementById('logsheet-title').value = logsheet.title || '';
         document.getElementById('logsheet-author').value = logsheet.author || '';
@@ -529,41 +547,41 @@ async function renderLogsheet(logsheet) {
         document.getElementById('items-container').innerHTML = '';
         document.getElementById("floating-save-button").style.display = "none";
         logsheet.items.forEach(item => {
-            if (item.type === 'procedure') {
+  
+			if (item.type === 'procedure') {
                 addProcedure();
-                const stepElement = document.getElementById('items-container').lastElementChild;
+                 const step = document.getElementById('items-container').lastElementChild;
 
-                stepElement.querySelector('input[placeholder="Enter procedure title"]').value = item.title || '';
-                stepElement.querySelector('textarea[placeholder="Enter detailed procedure description"]').value = item.description || '';
-                stepElement.querySelector('textarea[placeholder="Enter procedures"]').value = item.procedures || '';
-                //stepElement.querySelector('input[placeholder="Enter author name"]').value = item.author || '';
-                stepElement.querySelector('.step-timestamp').value = item.timestamp || '';
-                autoResizeTextarea(stepElement.querySelector('textarea[placeholder="Enter procedures"]'));
+                step.querySelector('[data-field="title"]').value = item.title || '';
+                step.querySelector('[data-field="description"]').value = item.description || '';
+                step.querySelector('[data-field="procedures"]').value = item.procedures || '';
+                step.querySelector('[data-field="author"]').value = item.procedures || '';
+                step.querySelector('[data-field="timestamp"]').value = item.timestamp || '';
+                autoResizeTextarea(step.querySelector('[data-field="procedures"]'));
 
             } else if (item.type === 'note') {
                 addNote();
-                const noteElement = document.getElementById('items-container').lastElementChild;
-                noteElement.querySelector('textarea[placeholder="Enter note content"]').value = item.content || '';
-                noteElement.querySelector('.step-timestamp').value = item.timestamp || '';
+                const step = document.getElementById('items-container').lastElementChild;
+                step.querySelector('[data-field="content"]').value = item.content || '';
+                step.querySelector('[data-field="timestamp"]').value = item.timestamp || '';
 
             } else if (item.type === 'attachment') {
                 addAttachment();
-                const attachmentElement = document.getElementById('items-container').lastElementChild;
-                attachmentElement.querySelector('.file-name').textContent = item.filename || 'No file selected';
-                attachmentElement.querySelector('textarea[placeholder="Enter attachment description"]').value = item.description || '';
-                attachmentElement.querySelector('.step-timestamp').value = item.timestamp || '';
-                // Set ObjectId in the hidden field
-                attachmentElement.querySelector('input[name="attachment-id"]').value = item.attachmentId || '';
+                const step = document.getElementById('items-container').lastElementChild;
+                step.querySelector('.file-name').textContent = item.filename || 'No file selected';
+                step.querySelector('[data-field="description"]').value = item.description || '';
+                step.querySelector('[data-field="timestamp"]').value = item.timestamp || '';
+                step.querySelector('[data-field="attachment-id"]').value = item.attachmentId || '';
 
                 // Show download link if there is an ObjectId
-                const downloadLink = attachmentElement.querySelector('.download-link');
+                const downloadLink = step.querySelector('.download-link');
                 if (item.attachmentId) {
                     downloadLink.style.display = 'inline';
                     downloadLink.href = `/downloads/${item.attachmentId}/${item.filename}`; 
                     downloadLink.textContent = 'Download';
                     //downloadLink.onclick = () => downloadAttachment(item.fileObjectId);
-                    attachmentElement.querySelector('input[type="file"]').style.display = 'none';
-                    attachmentElement.querySelector('button[onclick="uploadAttachment(this)"]').style.display = 'none';
+                    step.querySelector('[data-field="file"]').style.display = 'none';
+                    //step.querySelector('button[onclick="uploadAttachment(this)"]').style.display = 'none';
                 }
             }
         });
@@ -654,10 +672,10 @@ async function fetchTemplate(title) {
 
             // Populate the form fields in the target logsheet step
             const parentItem = window.templateTargetItem;
-            parentItem.querySelector('input[placeholder="Enter procedure title"]').value = template.title || '';
-            parentItem.querySelector('textarea[placeholder="Enter detailed procedure description"]').value = template.description || '';
-            parentItem.querySelector('textarea[placeholder="Enter procedures"]').value = template.procedures || '';
-            autoResizeTextarea(parentItem.querySelector('textarea[placeholder="Enter procedures"]'));
+            parentItem.querySelector('[data-field="title"]').value = template.title || '';
+            parentItem.querySelector('[data-field="description"]').value = template.description || '';
+            parentItem.querySelector('[data-field="procedures"]').value = template.procedures || '';
+            autoResizeTextarea(parentItem.querySelector('[data-field="procedures"]'));
 
             alert("Template loaded successfully!");
             closeTemplateModal();

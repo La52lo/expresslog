@@ -15,6 +15,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
 
     if (res.ok) {
       localStorage.setItem('token', data.token);
+	  localStorage.setItem('userName', username);
       document.getElementById('message').textContent = 'Login successful';
       window.location.href = '/'; // redirect to home
     } else {

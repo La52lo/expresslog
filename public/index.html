@@ -6,7 +6,7 @@
     <title>logsheet Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 	<link rel="stylesheet" href="style.css">
-	<link rel="icon" href="fablog.ico" type="image/x-icon">
+	<link rel="icon" href="el250.ico" type="image/x-icon">
     <script src="https://unpkg.com/realm-web/dist/bundle.iife.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.1.3/dist/auth0-spa-js.production.js"></script>
 	<script defer src="script.js"></script>
@@ -18,9 +18,9 @@
 <body>
 
 <div class="toolbar">
+	<button id="logout-btn" onclick="logout()" ><i class="fas fa-sign-out-alt"></i> Logout</button>
 	<span class="userLabel" id="user-info"></span>
 	<button id="login-btn" onclick="goToLogin()"><i class="fas fa-sign-in-alt"></i> Login</button>
-	<button id="logout-btn" style="display: none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
 </div>
 
 <div class="toolbar">
@@ -36,11 +36,11 @@
 <div class="container" id="logsheet-container">
     <div class="header">
         <label for="logsheet-title">logsheet Name</label>
-        <input type="text" id="logsheet-title" placeholder="Enter logsheet name">
+        <input type="text" id="logsheet-title" placeholder="Enter logsheet name" data-field="title">
     </div>
     <div class="header">
         <label for="logsheet-author">Author</label>
-        <input type="text" id="logsheet-author" placeholder="Enter author name">
+        <input type="text" id="logsheet-author" placeholder="Enter author name" data-field="author">
     </div>
     <div class="header">
         <label for="created-at">Created At</label>
@@ -48,14 +48,14 @@
     </div>
     <div class="header">
         <label for="modified-at">Last Modified At</label>
-        <input type="text" id="modified-at" disabled>
+        <input type="text" id="modified-at" disabled data-field="created-at">
     </div>
     <div id="items-container">
 	
         <!-- Dynamic logsheet items will be appended here -->
     </div>
-	<input type="hidden" id="logsheet-id" value="">
-	<input type="hidden" id="logsheet-rev" value="">
+	<input type="hidden" id="logsheet-id" value="" data-field="logsheet-id">
+	<input type="hidden" id="logsheet-rev" value="" data-field="logsheet-rev">
     <button id="addProc-btn" onclick="addProcedure()">Add Procedure</button>
     <button id="addNote-btn" onclick="addNote()">Add Note</button>
     <button id="addAttach-btn"onclick="addAttachment()">Add Attachment</button>
@@ -90,6 +90,19 @@
 			
         </ul>
     </div>
+</div>
+
+<!-- File Upload Modal -->
+<div id="file-upload-modal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Upload Attachment</h3>
+    <p id="modal-file-name">Selected file: (none)</p>
+
+    <div class="modal-buttons">
+      <button id="modal-upload-save-btn">Upload & Save</button>
+      <button id="modal-cancel-btn">Cancel</button>
+    </div>
+  </div>
 </div>
 
 

@@ -10,7 +10,7 @@ router.get("/:attachmentId/:filename", (req, res) => {
   const { attachmentId, filename } = req.params;
   const filePath = path.join(
     __dirname,
-    "..",
+    "..","..",
     "uploads",
     attachmentId,
     filename
