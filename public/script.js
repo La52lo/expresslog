@@ -55,6 +55,7 @@ function newLogsheet() {
     document.getElementById('items-container').innerHTML = '';
     document.getElementById('logsheet-id').value = '';
 	document.getElementById('logsheet-rev').value = '';
+	document.getElementById('isPublished').checked = false;
 
 }
 
@@ -219,7 +220,7 @@ function addProcedure() {
     logsheetStep.innerHTML = `
             <div class="tag step-tag">Procedure</div>
 			<input type="hidden" name="step-id" value="">
-			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
+			<button class="remove-item" onclick="this.parentElement.remove();showSaveButton()" data-field="remove_step">X</button>
             
             <label>Title</label>
             <input class="logsheet-step-title" type="text" placeholder="Enter procedure title" style="text-align:center;" data-field="title" >
@@ -254,7 +255,7 @@ function addNote() {
     const timestamp = new Date().toLocaleString();
     noteItem.innerHTML = `
             <div class="tag step-tag">Note</div>
-			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
+			<button class="remove-item" onclick="this.parentElement.remove();showSaveButton()" data-field="remove_step">X</button>
             
             <label>Note Content</label>
             <textarea rows="3" placeholder="Enter note content" data-field="content"></textarea>
@@ -272,7 +273,7 @@ function addAttachment() {
     const timestamp = new Date().toLocaleString();
     attachmentItem.innerHTML = `
             <div class="tag step-tag">Attachment</div>
-			<button class="remove-item" onclick="this.parentElement.remove()">X</button>
+			<button class="remove-item" onclick="this.parentElement.remove();showSaveButton()" data-field="remove_step">X</button>
             
             <label>Attachment</label>
             <input type="file" onchange="updateFileName(this)" data-field="file">
@@ -440,6 +441,7 @@ async function saveLogsheet() {
         author: document.getElementById('logsheet-author').value,
         created_at: document.getElementById('created-at').value || new Date().toLocaleString(),
         last_modified_at: new Date().toLocaleString(),
+		is_published: document.getElementById('isPublished').checked,
         items: []
     };
 
@@ -543,6 +545,7 @@ async function renderLogsheet(logsheet) {
         document.getElementById('modified-at').value = logsheet.lastModifiedAt || '';
         document.getElementById('logsheet-id').value = logsheet._id;
 		document.getElementById('logsheet-rev').value = logsheet._rev;
+		document.getElementById('isPublished').checked = logsheet.is_published;
 
         document.getElementById('items-container').innerHTML = '';
         document.getElementById("floating-save-button").style.display = "none";
@@ -704,7 +707,6 @@ async function deleteTemplate(title) {
         const jsonData = await response.json();
         if (response.ok) {
             alert("Template deleted!");
-			newLogsheet();
         } else {
 			alert("Delete failed!");
             console.error("Failed to delete logsheet:", jsonData.error);

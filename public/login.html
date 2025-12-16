@@ -2,16 +2,35 @@
 <html>
 <head>
   <title>Login - Expresslog</title>
+  <link rel="icon" href="el250.ico" type="image/x-icon">
 </head>
 <body>
   <h1>Expresslog Login</h1>
 
-  <form id="loginForm">
-    <input type="text" id="username" placeholder="Username" required />
-    <input type="password" id="password" placeholder="Password" required />
+  <form id="loginForm" autocomplete="on">
+    
+    <input 
+      type="text" 
+      id="username" 
+      name="username"
+      placeholder="Username" 
+      autocomplete="username"
+      required 
+    />
+
+    <input 
+      type="password" 
+      id="password" 
+      name="password"
+      placeholder="Password" 
+      autocomplete="current-password"
+      required 
+    />
+
     <button type="submit">Login</button>
   </form>
-<a href="/register.html">Create an account</a>
+
+  <a href="/register.html">Create an account</a>
 
   <div id="message"></div>
 

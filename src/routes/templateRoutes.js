@@ -110,7 +110,6 @@ router.get("/:title", authMiddleware, async (req, res) => {
     const title = req.params.title;
 	
     const _id = buildDocId(userId, title);
-	console.log("typeof _id:", typeof _id, "value:", _id);
     const doc = await db.get(_id);
 	delete doc.user;
     res.json(doc);

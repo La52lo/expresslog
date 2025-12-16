@@ -17,7 +17,7 @@ const dbName = "sheets";
 // --------------------
 router.post("/", authMiddleware,async (req, res) => {
   try {
-	const { title, items } = req.body; 
+	const { title, author,is_published, items } = req.body; 
     const db = await useDb(dbName);
 	const userId = req.user.id; // from decoded JWT
 	const _id = buildDocId(userId, title);
@@ -39,8 +39,10 @@ router.post("/", authMiddleware,async (req, res) => {
     const sheet = {
       _id,
 	  title,
+	  author,
 	  user: userId,
 	  createdAt: now.format('YYYY/MM/DD HH:mm:ss'),
+	  is_published,
 	  items,
       
     };
@@ -49,6 +51,52 @@ router.post("/", authMiddleware,async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// --------------------
+// UPDATE (PUT) existing entry
+// --------------------
+router.put("/", authMiddleware, async (req, res) => {
+  try {
+	
+    const { title,author,is_published, rev, items,  } = req.body; 
+	const db = await useDb(dbName);
+	const userId = req.user.id; // from decoded JWT
+	const _id = buildDocId(userId, title);
+	
+
+    if (!title || !rev) {
+      return res.status(400).json({ error: "Title and revision are required" });
+    }
+
+    let doc;
+    try {
+      doc = await db.get(_id);
+    } catch (err) {
+      if (err.statusCode === 404) return res.status(404).json({ error: "Document not found" });
+      throw err;
+    }
+
+    // Only allow update from latest revision
+    if (rev !== doc._rev) {
+      return res.status(409).json({
+        error: "Revision conflict. Reload latest document and try again.",
+        latest: { id: doc._id, title: doc.title, content: doc.content, rev: doc._rev }
+      });
+    }
+	// Update document
+    doc.items = items;
+	doc.author = author;
+	doc.is_published = is_published;
+	const now = dayjs();
+	doc.lastModifiedAt = now.format('YYYY/MM/DD HH:mm:ss');
+    const response = await db.insert(doc); // CouchDB will increment _rev
+
+    res.json({ ok: true, id: response.id, rev: response.rev });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -123,48 +171,6 @@ router.get("/:title", authMiddleware, async (req, res) => {
   }
 });
 
-// --------------------
-// UPDATE (PUT) existing entry
-// --------------------
-router.put("/", authMiddleware, async (req, res) => {
-  try {
-    const { title, rev, items } = req.body; // client must provide latest _rev
-	const db = await useDb(dbName);
-	const userId = req.user.id; // from decoded JWT
-	const _id = buildDocId(userId, title);
-	
-
-    if (!title || !rev) {
-      return res.status(400).json({ error: "Title and revision are required" });
-    }
-
-    let doc;
-    try {
-      doc = await db.get(_id);
-    } catch (err) {
-      if (err.statusCode === 404) return res.status(404).json({ error: "Document not found" });
-      throw err;
-    }
-
-    // Only allow update from latest revision
-    if (rev !== doc._rev) {
-      return res.status(409).json({
-        error: "Revision conflict. Reload latest document and try again.",
-        latest: { id: doc._id, title: doc.title, content: doc.content, rev: doc._rev }
-      });
-    }
-	// Update document
-    doc.items = items;
-	const now = dayjs();
-	doc.lastModifiedAt = now.format('YYYY/MM/DD HH:mm:ss');
-    const response = await db.insert(doc); // CouchDB will increment _rev
-
-    res.json({ ok: true, id: response.id, rev: response.rev });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // --------------------
 // DELETE entry by title

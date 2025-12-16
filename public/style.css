@@ -27,26 +27,41 @@ body {
 }
 
 /* Logsheet header alignment */
-    .container .header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
+/* Unified form row */
+.container .header {
+  display: grid;
+  grid-template-columns: 150px 1fr; /* label | field */
+  align-items: center;
+  column-gap: 10px;
+  margin-bottom: 10px;
+}
 
-    .container .header label {
-        width: 150px;
-        margin-right: 10px;
-    }
+/* Labels */
+.container .header label {
+  margin: 0;
+  text-transform: uppercase;
+}
 
-    .container .header input[type="text"],
-    .container .header textarea {
-        flex-grow: 1;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box;
-    }
+/* All inputs live in column 2 */
+.container .header text,
+.container .header textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
 
+	.checkbox-field {
+	  flex-grow: 1;          /* same as text inputs */
+	  display: flex;
+	  align-items: flex-start;
+	}
+
+	.checkbox-field input[type="checkbox"] {
+	  margin-left: 0;       /* ensure hard-left alignment */
+	  width: 20px;
+	  height: 20px;
+}
 
 h1, h2, h3, h4 {
     border-bottom: 2px solid black;
